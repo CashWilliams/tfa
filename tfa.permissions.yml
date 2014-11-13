@@ -1,0 +1,8 @@
+require tfa:
+  title: 'Require TFA process'
+  description: 'Require two-factor to authenticate. Note: users without TFA setup will be unable to log in.'
+
+admin tfa settings:
+  title: 'Administer TFA'
+  description: 'Configure two-factor authentication settings.'
+  restrict access: TRUE

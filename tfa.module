@@ -1,0 +1,304 @@
+<?php
+
+/**
+ * @file
+ * Contains tfa.module
+ */
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\tfa\Tfa;
+
+/**
+ * Implements hook_help().
+ */
+function tfa_help($route_name, RouteMatchInterface $route_match)
+{
+  switch ($route_name) {
+    // Main module help for the tfa module.
+    case 'help.page.tfa':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Pluggable provider of second factor authentication for Drupal') . '</p>';
+      return $output;
+    break;
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function tfa_theme()
+{
+  $theme = [];
+
+  return $theme;
+}
+
+/**
+ * Validate access to TFA code entry form.
+ */
+function tfa_entry_access($account, $url_hash) {
+  // Generate a hash for this account.
+  //$hash = tfa_login_hash($account);
+  //$context = tfa_get_context($account);
+  //return $hash === $url_hash && !empty($context) && $context['uid'] === $account->uid;
+  return TRUE;
+}
+
+function tfa_user_login($account) {
+  if (!\Drupal::config('tfa.settings')->get('tfa_enabled')) {
+    drupal_set_message(t('TFA is not enabled.'));
+    return;
+  }
+
+  drupal_set_message(t('TFA is enabled.'));
+
+  //$tfa = tfa_get_process($account);
+
+  /*
+  if ($account->hasPermission('require tfa') && !tfa_login_complete($account) && !$tfa->ready()) {
+    tfa_logout();
+    drupal_set_message(t('Login disallowed. You are required to setup two-factor authentication. Please contact a site administrator.'), 'error');
+    drupal_goto('user');
+  }
+  elseif (!tfa_login_complete($account) && $tfa->ready() && !tfa_login_allowed($account)) {
+    // User has been authenticated so force logout and redirect to TFA form.
+    tfa_logout();
+    // Restart flood levels, session context, and TFA process.
+    flood_clear_event('tfa_validate');
+    flood_register_event('tfa_begin');
+    $context = tfa_start_context($account);
+    $tfa = tfa_get_process($account);
+
+    // Hold onto destination. It will be used in tfa_form_submit().
+    $query = drupal_get_query_parameters();
+    if (arg(0) == 'user' && arg(1) == 'reset') {
+      // If one-time login reset destination and hold onto token.
+      $query['destination'] = 'user/' . $account->uid . '/edit';
+      $query['pass-reset-token'] = arg(4);
+    }
+    unset($_GET['destination']);
+
+    // Begin TFA and set process context.
+    $tfa->begin();
+    $context = $tfa->getContext();
+    tfa_set_context($account, $context);
+
+    $login_hash = tfa_login_hash($account);
+    // Use of $_GET['destination'] would allow other hooks to run but since the
+    // current user is no longer authenticated their expectation would be wrong.
+    drupal_goto('system/tfa/' . $account->uid . '/' . $login_hash, array('query' => $query));
+  }
+  */
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function tfa_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    case 'user_login_form':
+    case 'user_login_block':
+      if (\Drupal::config('tfa.settings')->get('tfa_enabled')) {
+        // Replace Drupal's login submit handler with TFA to check if
+        // authentication should be interrupted and user redirected to TFA form.
+        // Replacing user_login_submit() in its position allows other form_alter
+        // handlers to run after. However, the user must be redirected to the
+        // TFA form so the last handler in the order must be
+        // tfa_login_form_redirect(). Other modules may alter the tfa_redirect
+        // options element as needed to set the destination after TFA.
+        $key = array_search('::submitForm', $form['#submit']);
+        $form['#submit'][$key] = 'tfa_login_submit';
+        $form['#submit'][]     = 'tfa_login_form_redirect';
+      }
+      break;
+  }
+}
+
+/**
+ * Login submit handler for TFA form redirection.
+ *
+ * Should be last invoked form submit handler for forms user_login and
+ * user_login_block so that when the TFA process is applied the user will be
+ * sent to the TFA form.
+ */
+function tfa_login_form_redirect($form, &$form_state) {
+  $route = $form_state->getValue('tfa_redirect');
+  if (isset($route)) {
+    $form_state->setRedirect($route);
+  }
+}
+
+/**
+ * Login submit handler to determine if TFA process is applicable.
+ */
+function tfa_login_submit($form, &$form_state) {
+  // Similar to tfa_user_login() but not required to force user logout.
+
+  if ($uid = $form_state->get('uid')) {
+    $account = \Drupal::entityManager()->getStorage('user')->load($uid);
+  }
+  else {
+    $account = user_load_by_name($form_state->get('name'));
+  }
+
+  if ($tfa = _tfa_get_process($account)) {
+    if ($account->hasPermission('require tfa') && !_tfa_login_complete($account) && !$tfa->ready()) {
+      drupal_set_message(t('Login disallowed. You are required to setup two-factor authentication. Please contact a site administrator.'), 'error');
+      $form_state['redirect'] = 'user';
+    }
+    elseif (!tfa_login_complete($account) && $tfa->ready() && !tfa_login_allowed($account)) {
+
+      // Restart flood levels, session context, and TFA process.
+      flood_clear_event('tfa_validate');
+      flood_register_event('tfa_begin');
+      $context = tfa_start_context($account);
+      $tfa     = tfa_get_process($account);
+
+      $query = drupal_get_query_parameters();
+      if (!empty($form_state['redirect'])) {
+        // If there's an existing redirect set it in TFA context and
+        // tfa_form_submit() will extract and set once process is complete.
+        $context['redirect'] = $form_state['redirect'];
+      }
+      unset($_GET['destination']);
+
+      // Begin TFA and set process context.
+      $tfa->begin();
+      $context = $tfa->getContext();
+      tfa_set_context($account, $context);
+
+      $login_hash                 = tfa_login_hash($account);
+      $form_state['tfa_redirect'] = array(
+        'system/tfa/' . $account->uid . '/' . $login_hash,
+        array('query' => $query),
+      );
+    }
+    else {
+      // Authentication can continue so invoke user_login_submit().
+      user_login_submit($form, $form_state);
+    }
+  }
+  else {
+    drupal_set_message(t('Two-factor authentication is enabled but misconfigured. Please contact a site administrator.'), 'error');
+    $form_state->setRedirect('user.page');
+  }
+ }
+
+/**
+ * Get Tfa object in the account's current context.
+ *
+ * @param $account User account object
+ * @return Tfa
+ */
+function _tfa_get_process($account) {
+  $tfa = &drupal_static(__FUNCTION__);
+  if (!isset($tfa)) {
+    $context = _tfa_get_context($account);
+    if (empty($context)) {
+      $context = _tfa_start_context($account);
+    }
+    try {
+      // instansiate all plugins
+      $tfa = new Tfa($context['plugins'], $context);
+    }
+    catch (\Exception $e) {
+      $tfa = FALSE;
+    }
+  }
+  return $tfa;
+}
+
+/**
+ * Context for account TFA process.
+ *
+ * @param $account Drupal\user\Entity\User account
+ * @return array
+ *   @see _tfa_start_context() for format
+ */
+function _tfa_get_context(Drupal\user\Entity\User $account) {
+  $context = array();
+  if (isset($_SESSION['tfa'][$account->id])) {
+    $context = $_SESSION['tfa'][$account->id];
+  }
+  // Allow other modules to modify TFA context.
+  \Drupal::moduleHandler()->alter('tfa_context', $context);
+  return $context;
+}
+
+/**
+ * Start context for TFA.
+ *
+ * @param $account User account
+ * @return array
+ *   array(
+ *     'uid' => 9,
+ *     'plugins' => array(
+ *       'validate' => 'TfaMySendPlugin',
+ *       'login' => arrray('TfaMyLoginPlugin'),
+ *       'fallback' => array('TfaMyRecoveryCodePlugin'),
+ *       'setup' => 'TfaMySetupPlugin',
+ *     ),
+ */
+function _tfa_start_context($account) {
+  $context = array('uid' => $account->id, 'plugins' => array());
+  $plugins = array();
+  $fallback_plugins = array();
+
+  $api = \Drupal::moduleHandler()->invokeAll('tfa_api', []);
+  if (\Drupal::config('tfa.settings')->get('tfa_login_plugins')) {
+    $plugins = \Drupal::config('tfa.settings')->get('tfa_login_plugins');
+  }
+  if (\Drupal::config('tfa.settings')->get('tfa_fallback_plugins')) {
+    $fallback_plugins = \Drupal::config('tfa.settings')->get('tfa_fallback_plugins');
+  }
+
+  // Add login plugins.
+  foreach ($plugins as $key) {
+    if (array_key_exists($key, $api)) {
+      $context['plugins']['login'][] = $api[$key]['class'];
+    }
+  }
+  // Add validate.
+  $validate = \Drupal::config('tfa.settings')->get('tfa_validate_plugin');
+  if (!empty($validate) && array_key_exists($validate, $api)) {
+    $context['plugins']['validate'] = $api[$validate]['class'];
+  }
+  // Add fallback plugins.
+  foreach ($fallback_plugins as $key) {
+    if (array_key_exists($key, $api)) {
+      $context['plugins']['fallback'][] = $api[$key]['class'];
+    }
+  }
+  // Allow other modules to modify TFA context.
+  \Drupal::moduleHandler()->alter('tfa_context', $context);
+  _tfa_set_context($account, $context);
+  return $context;
+}
+
+/**
+ * Set context for account's TFA process.
+ *
+ * @param $account User account
+ * @param array $context Context array
+ *   @see tfa_start_context() for context format
+ */
+function _tfa_set_context($account, $context) {
+  $_SESSION['tfa'][$account->id] = $context;
+  $_SESSION['tfa'][$account->id]['uid'] = $account->id;
+  // Clear existing static TFA process.
+  drupal_static_reset('tfa_get_process');
+}
+
+/**
+ * Check if TFA process has completed so authentication should not be stopped.
+ *
+ * @param $account User account
+ * @return bool
+ */
+function _tfa_login_complete($account) {
+  // TFA master login allowed switch is set by tfa_login().
+  if (isset($_SESSION['tfa'][$account->uid]['login']) && $_SESSION['tfa'][$account->uid]['login'] === TRUE) {
+    return TRUE;
+  }
+  return FALSE;
+}
