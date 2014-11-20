@@ -45,6 +45,22 @@ class SettingsForm extends ConfigFormBase
       }
     }
 
+		//Get Login Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.login');
+		$login_plugins = $plugin_manager->getDefinitions();
+
+		//Get Send Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.send');
+		$send_plugins = $plugin_manager->getDefinitions();
+
+		//Get Validation Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.validation');
+		$validate_plugins = $plugin_manager->getDefinitions();
+
+		//Get Setup Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.setup');
+		$setup_plugins = $plugin_manager->getDefinitions();
+
 
 
 
@@ -95,6 +111,16 @@ class SettingsForm extends ConfigFormBase
     }
 
 		//TODO - make this a table element in form
+		/**
+		 * FORM:
+		 * -Weighted table of validate elements, enable checkboxes (first is default, rest are fallbacks)
+		 * -Checkboxes of Send
+		 * -Checkboxes of Setup
+		 * -Checkboxes of Login
+		 */
+
+
+
     $form['plugins']['list'] = array(
       '#value'  => 'markup',
       '#markup' => _theme('item_list', array('items' => $items)),
@@ -199,9 +225,7 @@ class SettingsForm extends ConfigFormBase
     }
 
 
-		//Get Login Plugins
-		$plugin_manager = \Drupal::service('plugin.manager.tfa.login');
-		$login_plugins = $plugin_manager->getDefinitions();
+
 
 		// Enable login plugins.
     if (count($login_plugins) >= 1) {
@@ -222,11 +246,7 @@ class SettingsForm extends ConfigFormBase
       );
     }
 
-		//Get Send Plugins
-		$plugin_manager = \Drupal::service('plugin.manager.tfa.send');
-		$send_plugins = $plugin_manager->getDefinitions();
-
-		// Enable login plugins.
+		// Enable send plugins.
 		if (count($send_plugins) >= 1) {
 			$send_form_array = array();
 
@@ -241,6 +261,26 @@ class SettingsForm extends ConfigFormBase
 				'#title'         => t('Send plugins'),
 				'#options'       => $send_form_array,
 				'#default_value' => $config->get('tfa_send_plugins'),
+				//TODO - Fill in description
+				'#description'   => t('Not sure what this is'),
+			);
+		}
+
+		// Enable setup plugins.
+		if (count($setup_plugins) >= 1) {
+			$setup_form_array = array();
+
+			foreach($setup_plugins as $setup_plugin){
+				$id = $setup_plugin['id'];
+				$title = $setup_plugin['title'];
+				$setup_form_array[$id] = $title;
+			}
+
+			$form['tfa_setup'] = array(
+				'#type'          => 'checkboxes',
+				'#title'         => t('Setup plugins'),
+				'#options'       => $setup_form_array,
+				'#default_value' => $config->get('tfa_setup_plugins'),
 				//TODO - Fill in description
 				'#description'   => t('Not sure what this is'),
 			);
