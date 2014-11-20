@@ -8,3 +8,6 @@ services:
   plugin.manager.tfa.validation:
         class: Drupal\tfa\TfaSendPluginManager
         parent: default_plugin_manager
+  plugin.manager.tfa.setup:
+          class: Drupal\tfa\TfaSetupPluginManager
+          parent: default_plugin_manager
