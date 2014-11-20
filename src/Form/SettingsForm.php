@@ -30,7 +30,7 @@ class SettingsForm extends ConfigFormBase
 
     // Gather plugins.
 		//TODO - Wondering if all modules extend TfaBasePlugin
-    foreach (\Drupal::moduleHandler()->invokeAll('tfa_api', []) as $key => $data) {
+    /*foreach (\Drupal::moduleHandler()->invokeAll('tfa_api', []) as $key => $data) {
       if (is_subclass_of($data['class'], 'TfaBasePlugin')) {
         $plugins[$key] = $data;
       }
@@ -43,7 +43,7 @@ class SettingsForm extends ConfigFormBase
       elseif (in_array('TfaLoginPluginInterface', class_implements($data['class']))) {
         $login_plugins[$key] = $data['name'];
       }
-    }
+    }*/
 
 		//Get Login Plugins
 		$plugin_manager = \Drupal::service('plugin.manager.tfa.login');
@@ -75,7 +75,9 @@ class SettingsForm extends ConfigFormBase
     */
 
     // Return if there are no plugins.
-    if (empty($plugins) || empty($validate_plugins)) {
+		//TODO - Why check for plugins here?
+    //if (empty($plugins) || empty($validate_plugins)) {
+		if (empty($validate_plugins)) {
       //drupal_set_message(t('No plugins available for validation. See <a href="!link">the TFA help documentation</a> for setup.', array('!link' => \Drupal\Core\Url::fromRoute('help.page'))), 'error');
       drupal_set_message(t('No plugins available for validation. See the TFA help documentation for setup.'), 'error');
       return parent::buildForm($form, $form_state);;

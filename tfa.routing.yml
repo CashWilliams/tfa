@@ -10,11 +10,11 @@ tfa.entry:
   options:
     _maintenance_access: TRUE
 tfa.settings_form:
-  path: 'tfa/settings/SettingsForm'
+  path: 'admin/config/security/tfa/settings'
   defaults:
     _form: '\Drupal\tfa\Form\SettingsForm'
     _title: 'tfa Settings'
   options:
       _admin_route: TRUE
   requirements:
-    _permission: 'admin tfa settings'
+    _permission: 'administer site configuration'
