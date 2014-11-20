@@ -29,6 +29,7 @@ class SettingsForm extends ConfigFormBase
     $plugins = $send_plugins = $validate_plugins = $login_plugins = array();
 
     // Gather plugins.
+		//TODO - Wondering if all modules extend TfaBasePlugin
     foreach (\Drupal::moduleHandler()->invokeAll('tfa_api', []) as $key => $data) {
       if (is_subclass_of($data['class'], 'TfaBasePlugin')) {
         $plugins[$key] = $data;
@@ -43,6 +44,9 @@ class SettingsForm extends ConfigFormBase
         $login_plugins[$key] = $data['name'];
       }
     }
+
+
+
 
     // Check if mcrypt plugin is available.
     /*
@@ -89,6 +93,8 @@ class SettingsForm extends ConfigFormBase
         '@name' => $plugin['name']
       ));
     }
+
+		//TODO - make this a table element in form
     $form['plugins']['list'] = array(
       '#value'  => 'markup',
       '#markup' => _theme('item_list', array('items' => $items)),
@@ -192,17 +198,53 @@ class SettingsForm extends ConfigFormBase
       }
     }
 
-    // Enable login plugins.
+
+		//Get Login Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.login');
+		$login_plugins = $plugin_manager->getDefinitions();
+
+		// Enable login plugins.
     if (count($login_plugins) >= 1) {
+			$login_form_array = array();
+
+			foreach($login_plugins as $login_plugin){
+				$id = $login_plugin['id'];
+				$title = $login_plugin['title'];
+				$login_form_array[$id] = $title;
+			}
+
       $form['tfa_login'] = array(
         '#type'          => 'checkboxes',
         '#title'         => t('Login plugins'),
-        '#options'       => $login_plugins,
+        '#options'       => $login_form_array,
         '#default_value' => $config->get('tfa_login_plugins'),
         '#description'   => t('Plugins that can allow a user to skip the TFA process. If any plugin returns true the user will not be required to follow TFA. <strong>Use with caution.</strong>'),
-        '#states'        => $enabled_state,
       );
     }
+
+		//Get Send Plugins
+		$plugin_manager = \Drupal::service('plugin.manager.tfa.send');
+		$send_plugins = $plugin_manager->getDefinitions();
+
+		// Enable login plugins.
+		if (count($send_plugins) >= 1) {
+			$send_form_array = array();
+
+			foreach($send_plugins as $send_plugin){
+				$id = $send_plugin['id'];
+				$title = $send_plugin['title'];
+				$send_form_array[$id] = $title;
+			}
+
+			$form['tfa_send'] = array(
+				'#type'          => 'checkboxes',
+				'#title'         => t('Send plugins'),
+				'#options'       => $send_form_array,
+				'#default_value' => $config->get('tfa_send_plugins'),
+				//TODO - Fill in description
+				'#description'   => t('Not sure what this is'),
+			);
+		}
 
     return parent::buildForm($form, $form_state);
   }
