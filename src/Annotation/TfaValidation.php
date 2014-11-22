@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\tfa\Annotation\TfaValidation.
+ * Contains Drupal\tfa\Annotation\TfaValidation
  */
 
 namespace Drupal\tfa\Annotation;
@@ -10,7 +10,7 @@ namespace Drupal\tfa\Annotation;
 use Drupal\Component\Annotation\Plugin;
 
 /**
- * Defines a TFA Login annotation object.
+ * Defines a TFA Validation annotation object.
  *
  * @Annotation
  */

@@ -3,11 +3,11 @@ services:
     class: Drupal\tfa\TfaLoginPluginManager
     parent: default_plugin_manager
   plugin.manager.tfa.send:
-      class: Drupal\tfa\TfaSendPluginManager
-      parent: default_plugin_manager
+    class: Drupal\tfa\TfaSendPluginManager
+    parent: default_plugin_manager
   plugin.manager.tfa.validation:
-        class: Drupal\tfa\TfaSendPluginManager
-        parent: default_plugin_manager
+    class: Drupal\tfa\TfaValidationPluginManager
+    parent: default_plugin_manager
   plugin.manager.tfa.setup:
-          class: Drupal\tfa\TfaSetupPluginManager
-          parent: default_plugin_manager
+    class: Drupal\tfa\TfaSetupPluginManager
+    parent: default_plugin_manager

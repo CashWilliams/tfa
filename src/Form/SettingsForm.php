@@ -9,6 +9,7 @@ namespace Drupal\tfa\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Component\Utility\String;
 
 class SettingsForm extends ConfigFormBase
 {
@@ -28,22 +29,8 @@ class SettingsForm extends ConfigFormBase
     $form = array();
     $plugins = $send_plugins = $validate_plugins = $login_plugins = array();
 
-    // Gather plugins.
 		//TODO - Wondering if all modules extend TfaBasePlugin
-    /*foreach (\Drupal::moduleHandler()->invokeAll('tfa_api', []) as $key => $data) {
-      if (is_subclass_of($data['class'], 'TfaBasePlugin')) {
-        $plugins[$key] = $data;
-      }
-      if (in_array('TfaValidationPluginInterface', class_implements($data['class']))) {
-        $validate_plugins[$key] = $data['name'];
-      }
-      if (in_array('TfaSendPluginInterface', class_implements($data['class']))) {
-        $send_plugins[$key] = $data['name'];
-      }
-      elseif (in_array('TfaLoginPluginInterface', class_implements($data['class']))) {
-        $login_plugins[$key] = $data['name'];
-      }
-    }*/
+
 
 		//Get Login Plugins
 		$plugin_manager = \Drupal::service('plugin.manager.tfa.login');
@@ -60,7 +47,6 @@ class SettingsForm extends ConfigFormBase
 		//Get Setup Plugins
 		$plugin_manager = \Drupal::service('plugin.manager.tfa.setup');
 		$setup_plugins = $plugin_manager->getDefinitions();
-
 
 
 
@@ -83,51 +69,6 @@ class SettingsForm extends ConfigFormBase
       return parent::buildForm($form, $form_state);;
     }
 
-    $form['plugins'] = array(
-      '#type'  => 'fieldset',
-      '#title' => t('Available plugins'),
-    );
-    $items = array();
-    foreach ($plugins as $key => $plugin) {
-      $message = '<strong>@name</strong> (%type)';
-      // Include message whether plugin is set.
-      if ($config->get('tfa_enabled') && $config->get('tfa_validate_plugin') === $key
-      ) {
-        $message .= ' - active validator';
-      }
-      elseif ($config->get('tfa_enabled') && in_array($key, $config->get('tfa_login_plugins'))
-      ) {
-        $message .= ' - active login';
-      }
-      elseif ($config->get('tfa_enabled') && in_array($key, $config->get('tfa_fallback_plugins'))
-      ) {
-        $message .= ' - active fallback';
-      }
-      elseif ($config->get('tfa_enabled')) {
-        $message .= ' - unused';
-      }
-      $items[] = t($message, array(
-        '%type' => $this->tfa_class_types($plugin['class']),
-        '@name' => $plugin['name']
-      ));
-    }
-
-		//TODO - make this a table element in form
-		/**
-		 * FORM:
-		 * -Weighted table of validate elements, enable checkboxes (first is default, rest are fallbacks)
-		 * -Checkboxes of Send
-		 * -Checkboxes of Setup
-		 * -Checkboxes of Login
-		 */
-
-
-
-    $form['plugins']['list'] = array(
-      '#value'  => 'markup',
-      '#markup' => _theme('item_list', array('items' => $items)),
-    );
-
     // Option to enable entire process or not.
     $form['tfa_enabled'] = array(
       '#type'          => 'checkbox',
@@ -136,23 +77,58 @@ class SettingsForm extends ConfigFormBase
       '#description'   => t('Enable TFA for account authentication.'),
     );
 
-    // Reusable #states for tfa_enabled.
-    $enabled_state = array(
-      'visible' => array(
-        ':input[name="tfa_enabled"]' => array('checked' => TRUE)
-      )
-    );
 
-    // Default active plugin
-    if (count($validate_plugins) >= 1) {
-      $form['tfa_validate'] = array(
-        '#type'          => 'select',
-        '#title'         => t('Default validation plugin'),
-        '#options'       => $validate_plugins,
-        '#default_value' => $config->get('tfa_validate_plugin'),
-        '#description'   => t('Plugin that will be used as the default TFA process.'),
-        '#states'        => $enabled_state,
-      );
+
+
+		//TODO - Get Weight for validate items
+
+    if (count($validate_plugins)) {
+
+			$form['validate_plugins'] = array(
+				'#type' => 'table',
+				'#header' => array(t('Validation Plugins'), t('Weight'),),
+				'#empty' => t('There are no constraints for the selected user roles'),
+				'#tableselect' => TRUE,
+				'#tabledrag' => array(
+					array(
+						'action' => 'order',
+						'relationship' => 'sibling',
+						'group' => 'validate-plugins-order-weight',
+					),
+				),
+			);
+
+			$c=0;
+
+			foreach($validate_plugins as $validate_plugin){
+				$id = $validate_plugin['id'];
+				//$title = (string) $validate_plugin['title'];
+				$title = 'test';
+				// TableDrag: Mark the table row as draggable.
+				$form['validate_plugins'][$id]['#attributes']['class'][] = 'draggable';
+				// TableDrag: Sort the table row according to its existing/configured weight.
+				$form['validate_plugins'][$id]['#weight'] = $c;
+
+				// Some table columns containing raw markup.
+				$form['validate_plugins'][$id]['title'] = array(
+					'#markup' => String::checkPlain($title),
+				);
+
+				// TableDrag: Weight column element.
+				$form['validate_plugins'][$id]['weight'] = array(
+					'#type' => 'weight',
+					'#title' => t('Weight for @title', array('@title' => $title)),
+					'#title_display' => 'invisible',
+					'#default_value' => $c,
+					// Classify the weight element for #tabledrag.
+					'#attributes' => array('class' => array('validate-plugins-order-weight')),
+				);
+
+				$c++;
+			}
+
+
+
     }
     else {
       $form['no_validate'] = array(
@@ -160,73 +136,6 @@ class SettingsForm extends ConfigFormBase
         '#markup' => t('No available validation plugins available. TFA process will not occur.'),
       );
     }
-
-    // Order of fallback plugins
-    if (count($validate_plugins) > 1) {
-      $enabled_fallback = $config->get('tfa_fallback_plugins');
-      $form['tfa_fallback'] = array(
-        '#type'        => 'fieldset',
-        '#title'       => t('Validation fallback plugins'),
-        '#description' => t('Fallback plugins and order. Note, if a fallback plugin is not setup for an account it will not be active in the TFA form.'),
-        '#states'      => $enabled_state,
-        '#tree'        => TRUE,
-      );
-      // First enabled.
-      foreach ($enabled_fallback as $order => $key) {
-        $validate_state             = array(
-          'invisible' => array(
-            ':input[name="tfa_validate"]' => array('value' => $key)
-          )
-        );
-        $form['tfa_fallback'][$key] = array(
-          'enable' => array(
-            '#title'         => $validate_plugins[$key],
-            '#type'          => 'checkbox',
-            '#default_value' => TRUE,
-            // Don't show options that are set as the main validation plugin.
-            '#states'        => $validate_state,
-          ),
-          'weight' => array(
-            '#type'          => 'weight',
-            '#title'         => t('Order'),
-            '#default_value' => $order,
-            '#delta'         => 10,
-            '#title_display' => 'invisible',
-            '#states'        => $validate_state,
-          ),
-        );
-      }
-      // Then other plugins.
-      foreach ($validate_plugins as $key => $plugin_name) {
-        if (isset($form['tfa_fallback'][$key])) {
-          continue;
-        }
-        $validate_state             = array(
-          'invisible' => array(
-            ':input[name="tfa_validate"]' => array('value' => $key)
-          )
-        );
-        $form['tfa_fallback'][$key] = array(
-          'enable' => array(
-            '#title'         => $plugin_name,
-            '#type'          => 'checkbox',
-            '#default_value' => in_array($key, $enabled_fallback) ? TRUE : FALSE,
-            // Don't show options that are set as the main validation plugin.
-            '#states'        => $validate_state,
-          ),
-          'weight' => array(
-            '#type'          => 'weight',
-            '#title'         => t('Order'),
-            '#default_value' => in_array($key, $enabled_fallback) ? array_search($key, $enabled_fallback) : 0,
-            '#delta'         => 10,
-            '#title_display' => 'invisible',
-            '#states'        => $validate_state,
-          ),
-        );
-      }
-    }
-
-
 
 
 		// Enable login plugins.

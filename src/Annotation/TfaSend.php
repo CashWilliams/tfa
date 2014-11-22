@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\tfa\Annotation\TfaSend.
+ * Contains Drupal\tfa\Annotation\TfaSend
  */
 
 namespace Drupal\tfa\Annotation;

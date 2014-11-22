@@ -25,7 +25,7 @@ class TfaValidationPluginManager extends \Drupal\Core\Plugin\DefaultPluginManage
 	 *   The module handler.
 	 */
 	public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler) {
-		parent::__construct('Plugin/TfaValidtion', $namespaces, $module_handler, 'Drupal\tfa\TfaValidationInterface', 'Drupal\tfa\Annotation\TfaValidation');
+		parent::__construct('Plugin/TfaValidation', $namespaces, $module_handler, 'Drupal\tfa\TfaValidationInterface', 'Drupal\tfa\Annotation\TfaValidation');
 		$this->alterInfo('tfa_validation_info');
 		$this->setCacheBackend($cache_backend, 'tfa_validation');
 	}
