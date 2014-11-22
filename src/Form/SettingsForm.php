@@ -80,9 +80,14 @@ class SettingsForm extends ConfigFormBase
 
 
 
-		//TODO - Get Weight for validate items
+
 
     if (count($validate_plugins)) {
+
+			//order plugins by weight
+			$weights = ($config->get('tfa_validate_weights'))?$config->get('tfa_validate_weights'):array();
+			$weights = array_flip($weights);
+			ksort($weights);
 
 			$form['validate_plugins'] = array(
 				'#type' => 'table',
@@ -99,15 +104,14 @@ class SettingsForm extends ConfigFormBase
 				'#default_value' => ($config->get('tfa_validate_plugins'))?$config->get('tfa_validate_plugins'):array(),
 			);
 
-			$c=0;
 
-			foreach($validate_plugins as $validate_plugin){
-				$id = (string) $validate_plugin['id'];
+			foreach($weights as $weight=>$id){
+				$validate_plugin = $validate_plugins[$id];
 				$title = (string) $validate_plugin['title'];
 				// TableDrag: Mark the table row as draggable.
 				$form['validate_plugins'][$id]['#attributes']['class'][] = 'draggable';
 				// TableDrag: Sort the table row according to its existing/configured weight.
-				$form['validate_plugins'][$id]['#weight'] = $c;
+				$form['validate_plugins'][$id]['#weight'] = $weight;
 
 				// Some table columns containing raw markup.
 				$form['validate_plugins'][$id]['title'] = array(
@@ -119,12 +123,10 @@ class SettingsForm extends ConfigFormBase
 					'#type' => 'weight',
 					'#title' => t('Weight for @title', array('@title' => $title)),
 					'#title_display' => 'invisible',
-					'#default_value' => $c,
+					'#default_value' => $weight,
 					// Classify the weight element for #tabledrag.
 					'#attributes' => array('class' => array('validate-plugins-order-weight')),
 				);
-
-				$c++;
 			}
 
 
@@ -212,14 +214,23 @@ class SettingsForm extends ConfigFormBase
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
-		$config = $this->config('tfa.settings');
+		//parse validate plugins
+		array_shift($form_state->getValue('validate_plugins'));
+		$validate_form_value = array_filter($form_state->getValue('validate_plugins'));
+		$validate_plugins = array();
+		$validate_weights = array();
+		foreach($validate_form_value as $key => $value){
+			$validate_plugins[$key] = $key;
+			$validate_weights[$key] = $value['weight'];
+		}
 
-		$config->config('tfa.settings')
+		$this->config('tfa.settings')
       ->set('tfa_enabled', $form_state->getValue('tfa_enabled'))
 			->set('tfa_setup_plugins', array_filter($form_state->getValue('tfa_setup')))
 			->set('tfa_send_plugins', array_filter($form_state->getValue('tfa_send')))
 			->set('tfa_login_plugins', array_filter($form_state->getValue('tfa_login')))
-			->set('tfa_validate_plugins', array_filter($form_state->getValue('validate_plugins')))
+			->set('tfa_validate_plugins', $validate_plugins)
+			->set('tfa_validate_weights', $validate_weights)
       ->save();
 
 		parent::submitForm($form, $form_state);
