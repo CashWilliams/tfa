@@ -96,14 +96,14 @@ class SettingsForm extends ConfigFormBase
 						'group' => 'validate-plugins-order-weight',
 					),
 				),
+				'#default_value' => ($config->get('tfa_validate_plugins'))?$config->get('tfa_validate_plugins'):array(),
 			);
 
 			$c=0;
 
 			foreach($validate_plugins as $validate_plugin){
-				$id = $validate_plugin['id'];
-				//$title = (string) $validate_plugin['title'];
-				$title = 'test';
+				$id = (string) $validate_plugin['id'];
+				$title = (string) $validate_plugin['title'];
 				// TableDrag: Mark the table row as draggable.
 				$form['validate_plugins'][$id]['#attributes']['class'][] = 'draggable';
 				// TableDrag: Sort the table row according to its existing/configured weight.
@@ -145,14 +145,14 @@ class SettingsForm extends ConfigFormBase
 			foreach($login_plugins as $login_plugin){
 				$id = $login_plugin['id'];
 				$title = $login_plugin['title'];
-				$login_form_array[$id] = $title;
+				$login_form_array[$id] = (string) $title;
 			}
 
       $form['tfa_login'] = array(
         '#type'          => 'checkboxes',
         '#title'         => t('Login plugins'),
         '#options'       => $login_form_array,
-        '#default_value' => $config->get('tfa_login_plugins'),
+				'#default_value' => ($config->get('tfa_login_plugins'))?$config->get('tfa_login_plugins'):array(),
         '#description'   => t('Plugins that can allow a user to skip the TFA process. If any plugin returns true the user will not be required to follow TFA. <strong>Use with caution.</strong>'),
       );
     }
@@ -164,14 +164,14 @@ class SettingsForm extends ConfigFormBase
 			foreach($send_plugins as $send_plugin){
 				$id = $send_plugin['id'];
 				$title = $send_plugin['title'];
-				$send_form_array[$id] = $title;
+				$send_form_array[$id] = (string) $title;
 			}
 
 			$form['tfa_send'] = array(
 				'#type'          => 'checkboxes',
 				'#title'         => t('Send plugins'),
 				'#options'       => $send_form_array,
-				'#default_value' => $config->get('tfa_send_plugins'),
+				'#default_value' => ($config->get('tfa_send_plugins'))?$config->get('tfa_send_plugins'):array(),
 				//TODO - Fill in description
 				'#description'   => t('Not sure what this is'),
 			);
@@ -191,7 +191,7 @@ class SettingsForm extends ConfigFormBase
 				'#type'          => 'checkboxes',
 				'#title'         => t('Setup plugins'),
 				'#options'       => $setup_form_array,
-				'#default_value' => $config->get('tfa_setup_plugins'),
+				'#default_value' => ($config->get('tfa_setup_plugins'))?$config->get('tfa_setup_plugins'):array(),
 				//TODO - Fill in description
 				'#description'   => t('Not sure what this is'),
 			);
@@ -211,10 +211,17 @@ class SettingsForm extends ConfigFormBase
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    parent::submitForm($form, $form_state);
 
-    $this->config('tfa.settings')
+		$config = $this->config('tfa.settings');
+
+		$config->config('tfa.settings')
       ->set('tfa_enabled', $form_state->getValue('tfa_enabled'))
+			->set('tfa_setup_plugins', array_filter($form_state->getValue('tfa_setup')))
+			->set('tfa_send_plugins', array_filter($form_state->getValue('tfa_send')))
+			->set('tfa_login_plugins', array_filter($form_state->getValue('tfa_login')))
+			->set('tfa_validate_plugins', array_filter($form_state->getValue('validate_plugins')))
       ->save();
+
+		parent::submitForm($form, $form_state);
   }
 }
