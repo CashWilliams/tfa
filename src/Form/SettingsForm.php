@@ -86,14 +86,18 @@ class SettingsForm extends ConfigFormBase
 
 			//order plugins by weight
 			$weights = ($config->get('tfa_validate_weights'))?$config->get('tfa_validate_weights'):array();
-			$weights = array_flip($weights);
-			ksort($weights);
+
+			//sort weight array by weight
+			asort($weights);
+			//get the max weight for unregistered elements
+			$max_weight = max(array_values($weights));
 
 			$form['validate_plugins'] = array(
 				'#type' => 'table',
-				'#header' => array(t('Validation Plugins'), t('Weight'),),
+				'#header' => array(t('Enabled'), t('Validation Plugins'), t('Weight'),),
 				'#empty' => t('There are no constraints for the selected user roles'),
-				'#tableselect' => TRUE,
+				//TODO - This is throwing errors due to combination of weighting and checkboxes
+				//'#tableselect' => TRUE,
 				'#tabledrag' => array(
 					array(
 						'action' => 'order',
@@ -101,11 +105,20 @@ class SettingsForm extends ConfigFormBase
 						'group' => 'validate-plugins-order-weight',
 					),
 				),
-				'#default_value' => ($config->get('tfa_validate_plugins'))?$config->get('tfa_validate_plugins'):array(),
+				//'#default_value' => ($config->get('tfa_validate_plugins'))?$config->get('tfa_validate_plugins'):array(),
 			);
 
+			//add unregistered plugins to weighted array
+			foreach($validate_plugins as $validate_plugin) {
+				$id = $validate_plugin['id'];
+				if(!in_array($id, array_keys($weights))) {
+					$max_weight++;
+					$weights[$id] = $max_weight;
+				}
+			}
 
-			foreach($weights as $weight=>$id){
+			//render table
+			foreach($weights as $id=>$weight) {
 				$validate_plugin = $validate_plugins[$id];
 				$title = (string) $validate_plugin['title'];
 				// TableDrag: Mark the table row as draggable.
@@ -114,6 +127,12 @@ class SettingsForm extends ConfigFormBase
 				$form['validate_plugins'][$id]['#weight'] = $weight;
 
 				// Some table columns containing raw markup.
+				$form['validate_plugins'][$id]['enabled'] = array(
+					'#type' => 'checkbox',
+					'#return_value' => $id,
+					'#default_value' => (in_array($id, $config->get('tfa_validate_plugins'))?$id:'0')
+				);
+
 				$form['validate_plugins'][$id]['title'] = array(
 					'#markup' => String::checkPlain($title),
 				);
@@ -213,15 +232,17 @@ class SettingsForm extends ConfigFormBase
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-
-		//parse validate plugins
-		array_shift($form_state->getValue('validate_plugins'));
-		$validate_form_value = array_filter($form_state->getValue('validate_plugins'));
 		$validate_plugins = array();
 		$validate_weights = array();
-		foreach($validate_form_value as $key => $value){
-			$validate_plugins[$key] = $key;
-			$validate_weights[$key] = $value['weight'];
+
+		$validate_values = $form_state->getValue('validate_plugins');
+
+		foreach($validate_values as $plugin_id => $plugin_settings){
+			if($plugin_settings['enabled']){
+				$validate_plugins[$plugin_id] = $plugin_id;
+			}
+
+			$validate_weights[$plugin_id] = $plugin_settings['weight'];
 		}
 
 		$this->config('tfa.settings')
