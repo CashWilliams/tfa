@@ -2,18 +2,18 @@
 
 /**
  * @file
- * Contains \Drupal\tfa\TfaValidationPluginInterface.
+ * Contains \Drupal\tfa\TfaValidationInterface.
  */
 
 namespace Drupal\tfa;
 
 /**
- * Interface TfaValidationPluginInterface
+ * Interface TfaValidationInterface
  *
  * Validation plugins interact with the Tfa form processes to provide code entry
  * and validate submitted codes.
  */
-interface TfaValidationPluginInterface {
+interface TfaValidationInterface {
 
   /**
    * Get TFA process form from plugin.

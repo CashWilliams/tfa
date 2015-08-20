@@ -2,20 +2,20 @@
 
 /**
  * @file
- * Contains \Drupal\tfa\TfaSendPluginInterface.
+ * Contains \Drupal\tfa\TfaSendInterface.
  */
 
 namespace Drupal\tfa;
 
 /**
- * Interface TfaSendPluginInterface
+ * Interface TfaSendInterface
  *
  * Send plugins interact with the Tfa begin() process to communicate a code
  * during the start of the TFA process.
  *
  * Implementations of a send plugin should also be a validation plugin.
  */
-interface TfaSendPluginInterface {
+interface TfaSendInterface {
 
   /**
    * TFA process begin.

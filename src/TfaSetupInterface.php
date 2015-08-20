@@ -2,19 +2,19 @@
 
 /**
  * @file
- * Contains \Drupal\tfa\TfaSetupPluginInterface.
+ * Contains \Drupal\tfa\TfaSetupInterface.
  */
 
 namespace Drupal\tfa;
 
 /**
- * Interface TfaSetupPluginInterface
+ * Interface TfaSetupInterface
  *
  * Setup plugins are used by TfaSetup for configuring a plugin.
  *
  * Implementations of a begin plugin should also be a validation plugin.
  */
-interface TfaSetupPluginInterface {
+interface TfaSetupInterface {
 
   /**
    * @param array $form
